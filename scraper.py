@@ -9,6 +9,7 @@ Strategia (w kolejności):
 import logging
 import time
 from datetime import datetime
+from io import StringIO
 from typing import Optional
 
 import pandas as pd
@@ -159,7 +160,7 @@ def _extract_tables_from_html(
     result = []
     for idx, table in enumerate(raw_tables):
         try:
-            dfs = pd.read_html(str(table), flavor="lxml", thousands="\xa0")
+            dfs = pd.read_html(StringIO(str(table)), flavor="lxml", thousands="\xa0")
             if not dfs:
                 continue
             df = dfs[0]
