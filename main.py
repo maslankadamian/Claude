@@ -1,9 +1,11 @@
 """
-TGE Data Scraper – punkt wejścia.
+TGE Data Scraper – logika scrapingu i harmonogram.
 
-Uruchomienie:
-  python main.py                  # Uruchom teraz + włącz harmonogram
-  python main.py --run-once       # Tylko jedno pobranie (bez harmonogramu)
+Uruchomienie przez web UI:
+  python app.py
+
+Uruchomienie CLI (bez web UI):
+  python main.py --run-once       # Tylko jedno pobranie
   python main.py --config inna.yaml
 """
 import argparse
@@ -17,7 +19,6 @@ import time
 import yaml
 
 from data_manager import append_to_excel, get_summary
-from email_sender import send_report
 from scraper import scrape_all
 
 # ── Logging ──────────────────────────────────────────────────────────────────
@@ -48,12 +49,14 @@ def load_config(config_path: str = "config.yaml") -> dict:
 
 # ── Główna logika jednego cyklu ───────────────────────────────────────────────
 
-def run_cycle(config: dict) -> None:
+def run_cycle(config: dict) -> dict:
     """
     Jeden pełny cykl:
     1. Scraping tabel z TGE
     2. Zapis/dopisanie do Excel
-    3. Wysyłka e-mail
+
+    Zwraca słownik z wynikiem (używany przez web UI i CLI).
+    E-mail NIE jest wysyłany automatycznie – wywoływany ręcznie z app.py.
     """
     start = datetime.now()
     logger.info("=" * 60)
@@ -64,18 +67,23 @@ def run_cycle(config: dict) -> None:
     scraped = scrape_all(config)
     if not any(scraped.values()):
         logger.error("Nie pobrano żadnych danych. Cykl przerwany.")
-        return
+        return {"ok": False, "error": "Nie pobrano żadnych danych.", "start": start}
 
     # 2. Zapis do Excel
     excel_path = append_to_excel(scraped, config)
     summary = get_summary(excel_path)
     logger.info("Podsumowanie pliku:\n%s", summary)
 
-    # 3. E-mail
-    send_report(excel_path, summary, config, fetch_time=start)
-
     elapsed = (datetime.now() - start).total_seconds()
     logger.info("Cykl zakończony w %.1f s.", elapsed)
+
+    return {
+        "ok": True,
+        "excel_path": excel_path,
+        "summary": summary,
+        "start": start,
+        "elapsed": elapsed,
+    }
 
 
 # ── Harmonogram ───────────────────────────────────────────────────────────────
@@ -123,17 +131,12 @@ def setup_schedule(config: dict) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="TGE Data Scraper – pobiera dane z tge.pl i zapisuje do Excel."
+        description="TGE Data Scraper CLI – jednorazowe pobranie danych."
     )
     parser.add_argument(
         "--config",
         default="config.yaml",
         help="Ścieżka do pliku konfiguracyjnego (domyślnie: config.yaml)",
-    )
-    parser.add_argument(
-        "--run-once",
-        action="store_true",
-        help="Wykonaj jedno pobranie i zakończ (bez harmonogramu).",
     )
     return parser.parse_args()
 
@@ -142,27 +145,13 @@ def main() -> None:
     args = parse_args()
     config = load_config(args.config)
 
-    if args.run_once:
-        logger.info("Tryb jednorazowy (--run-once).")
-        run_cycle(config)
-        return
-
-    # Pierwsze pobranie od razu po starcie
-    logger.info("Uruchamiam pierwsze pobranie natychmiast...")
-    run_cycle(config)
-
-    # Ustaw harmonogram
-    setup_schedule(config)
-
-    frequency = config.get("schedule", {}).get("frequency", "daily")
-    if frequency == "manual":
-        logger.info("Harmonogram wyłączony. Zakończono.")
-        return
-
-    logger.info("Harmonogram aktywny. Oczekuję na kolejne uruchomienie...")
-    while True:
-        schedule.run_pending()
-        time.sleep(30)
+    logger.info("Tryb CLI (--run-once). Uruchamiam jednorazowe pobranie.")
+    result = run_cycle(config)
+    if result["ok"]:
+        logger.info("Gotowe. Plik: %s", result["excel_path"])
+    else:
+        logger.error("Błąd: %s", result.get("error"))
+        sys.exit(1)
 
 
 if __name__ == "__main__":
