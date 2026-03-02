@@ -32,6 +32,7 @@ scraping:
   urls:
     - https://tge.pl/
     - https://tge.pl/otf
+    - https://tge.pl/energia-elektryczna-rdn
   # Czas oczekiwania na załadowanie strony (sekundy)
   page_load_timeout: 30
   # Czas oczekiwania na elementy JS (sekundy)
