@@ -48,7 +48,8 @@ def _build_html_body(summary: str, fetch_time: datetime) -> str:
     </table>
     <p style="margin-top:16px;font-size:12px;color:#888;">
       Źródła danych: <a href="https://tge.pl/">tge.pl</a>,
-      <a href="https://tge.pl/otf">tge.pl/otf</a><br>
+      <a href="https://tge.pl/otf">tge.pl/otf</a>,
+      <a href="https://tge.pl/energia-elektryczna-rdn">tge.pl/energia-elektryczna-rdn</a><br>
       Wiadomość wygenerowana automatycznie przez TGE Data Scraper.
     </p>
   </div>
